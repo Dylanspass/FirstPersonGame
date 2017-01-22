@@ -60,6 +60,7 @@ public class PlayerHealth : NetworkBehaviour {
 		
 		if(isLocalPlayer)
 		{
+			Debug.Log("HI");
 			PlayerCanvas.canvas.SetHealth(value);
 		}
 	}
