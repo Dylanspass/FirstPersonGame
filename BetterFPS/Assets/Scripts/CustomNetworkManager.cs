@@ -33,24 +33,32 @@ public class CustomNetworkManager : NetworkManager
     private void HideSceneCamera()
     {       
         if(sceneCamera)
+        {
             sceneCamera.SetActive(false);
+        }
     }
 
     private void ShowSceneCamera()
     {       
         if(sceneCamera)
+        {
             sceneCamera.SetActive(true);
+        }
     }
 
     private void HideReticuleCanvas()
     {
         if (reticuleCanvas)
+        {
             reticuleCanvas.SetActive(false);
+        }
     }
 
     private void ShowReticuleCanvas()
     {
         if (reticuleCanvas)
+        {
             reticuleCanvas.SetActive(true);
+        }
     }
 }

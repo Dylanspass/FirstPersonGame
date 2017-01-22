@@ -18,6 +18,7 @@ public class PlayerHealth : NetworkBehaviour {
 	[ServerCallback]
 	void OnEnable()
 	{
+		Debug.Log("HI");
 		health = maxHealth;
 	}
 
