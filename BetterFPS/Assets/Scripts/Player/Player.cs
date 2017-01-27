@@ -1,101 +1,187 @@
 ﻿using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.Events;
+using UnityEngine.UI;
+using System.Collections.Generic;
 
 [System.Serializable]
 public class ToggleEvent : UnityEvent<bool>{}
 
-public class Player : NetworkBehaviour {
+public class Player : NetworkBehaviour 
+{
+    [SyncVar (hook = "OnNameChanged")] public string playerName;
+    [SyncVar (hook = "OnColorChanged")] public Color playerColor;
 
-	[SerializeField] ToggleEvent onToggleShared;
-	[SerializeField] ToggleEvent onToggleLocal;
-	[SerializeField] ToggleEvent onToggleRemote;
-	[SerializeField] float respawnTime = 5f;
+    [SerializeField] ToggleEvent onToggleShared;
+    [SerializeField] ToggleEvent onToggleLocal;
+    [SerializeField] ToggleEvent onToggleRemote;
+    [SerializeField] float respawnTime = 5f;
 
-	GameObject mainCamera;
-	NetworkAnimator anim;
+    static List<Player> players = new List<Player> ();
 
-	// Use this for initialization
-	void Start () 
-	{
-		anim = GetComponent<NetworkAnimator>();
-		mainCamera = Camera.main.gameObject;
+    GameObject mainCamera;
+    NetworkAnimator anim;
 
-		EnablePlayer();
-	}
+    void Start()
+    {
+        anim = GetComponent<NetworkAnimator> ();
+        mainCamera = Camera.main.gameObject;
 
-	void Update()
-	{
-		if(!isLocalPlayer)
-		{
-			return;
-		}
+        EnablePlayer ();
+    }
 
-		anim.animator.SetFloat("Speed", Input.GetAxis("Vertical"));
-		anim.animator.SetFloat("Strafe", Input.GetAxis("Horizontal"));
-	}
-	
-	// Update is called once per frame
-	void DisablePlayer()
-	{
+    [ServerCallback]
+    void OnEnable()
+    {
+        if (!players.Contains (this))
+        {
+            players.Add (this);
+        }
+    }
 
-		if(isLocalPlayer)
-		{
-			mainCamera.SetActive(true);
-		}
+    [ServerCallback]
+    void OnDisable()
+    {
+        if (players.Contains (this))
+        {
+            players.Remove (this);
+        }
+    }
 
-		onToggleShared.Invoke(false);
+    void Update()
+    {
+        if (!isLocalPlayer)
+        {
+            return;
+        }
 
-		if(isLocalPlayer)
-		{
-			onToggleLocal.Invoke(false);
-		}
-		else
-		{
-			onToggleRemote.Invoke(false);
-		}
-	}
+        anim.animator.SetFloat ("Speed", Input.GetAxis ("Vertical"));
+        anim.animator.SetFloat ("Strafe", Input.GetAxis ("Horizontal"));
+    }
 
-	void EnablePlayer()
-	{
+    void DisablePlayer()
+    {
+        if (isLocalPlayer) 
+        {
+            PlayerCanvas.canvas.HideReticule ();
+            mainCamera.SetActive (true);
+        }
 
-		if(isLocalPlayer)
-		{
-			mainCamera.SetActive(false);
-		}
+        onToggleShared.Invoke (false);
 
-		onToggleShared.Invoke(true);
+        if (isLocalPlayer)
+        {
+            onToggleLocal.Invoke (false);
+        }
+        else
+        {
+            onToggleRemote.Invoke (false);
+        }
+    }
 
-		if(isLocalPlayer)
-		{
-			onToggleLocal.Invoke(true);
-		}
-		else
-		{
-			onToggleRemote.Invoke(true);
-		}
-	}
+    void EnablePlayer()
+    {
+        if (isLocalPlayer) 
+        {
+            PlayerCanvas.canvas.Initialize ();
+            mainCamera.SetActive (false);
+        }
 
-	public void Die()
-	{
-		DisablePlayer();
+        onToggleShared.Invoke (true);
 
-		Invoke("Respawn", respawnTime);
+        if (isLocalPlayer)
+        {
+            onToggleLocal.Invoke (true);
+        }
+        else
+        {
+            onToggleRemote.Invoke (true);
+        }
+    }
 
-		//anim.SetTrigger("Died");
-	}
+    public void Die()
+    {
+        if(isLocalPlayer || playerControllerId == -1)
+        {
+            //anim.SetTrigger ("Died");
+        }
+        
+        if (isLocalPlayer) 
+        {
+            PlayerCanvas.canvas.WriteGameStatusText ("You Died!");
+            PlayerCanvas.canvas.PlayDeathAudio ();
+        }
 
-	void Respawn()
-	{
-		if(isLocalPlayer)
-		{
-			Transform spawn = NetworkManager.singleton.GetStartPosition();
-			transform.position = spawn.position;
-			transform.rotation = spawn.rotation;
+        DisablePlayer ();
 
-			anim.SetTrigger("Restart");
-		}
+        Invoke ("Respawn", respawnTime);
+    }
 
-		EnablePlayer();
-	}
+    void Respawn()
+    {
+        if(isLocalPlayer || playerControllerId == -1)
+        {
+            anim.SetTrigger ("Restart");
+        }
+
+        if (isLocalPlayer) 
+        {
+            Transform spawn = NetworkManager.singleton.GetStartPosition ();
+            transform.position = spawn.position;
+            transform.rotation = spawn.rotation;
+        }
+
+        EnablePlayer ();
+    }
+
+    void OnNameChanged(string value)
+    {
+        playerName = value;
+        gameObject.name = playerName;
+        GetComponentInChildren<Text> (true).text = playerName;
+    }
+
+    void OnColorChanged(Color value)
+    {
+        playerColor = value;
+        GetComponentInChildren<Text> (true).color = playerColor;
+        //GetComponentInChildren<RendererToggler> ().ChangeColor (playerColor);
+    }
+
+    [Server]
+    public void Won()
+    {
+        for (int i = 0; i < players.Count; i++)
+        {
+            players [i].RpcGameOver (netId, name);
+        }
+
+        Invoke ("BackToLobby", 5f);
+    }
+
+    [ClientRpc]
+    void RpcGameOver(NetworkInstanceId networkID, string name)
+    {
+        DisablePlayer ();
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        if (isLocalPlayer)
+        {
+            if (netId == networkID)
+            {
+                PlayerCanvas.canvas.WriteGameStatusText ("You Won!");
+            }
+            else
+            {
+                PlayerCanvas.canvas.WriteGameStatusText ("Game Over!\n" + name + " Wins");
+            }
+        }
+    }
+
+    void BackToLobby()
+    {
+        FindObjectOfType<NetworkLobbyManager> ().SendReturnToLobby ();
+    }
 }

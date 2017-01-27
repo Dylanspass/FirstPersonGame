@@ -71,7 +71,7 @@ public class PlayerCanvas : MonoBehaviour
 		healthValue.text = amount.ToString();
 	}
 
-	public void writeGameStatusText(string text)
+	public void WriteGameStatusText(string text)
 	{
 		gameStatusText.text = text;
 	}

@@ -18,7 +18,14 @@ public class PlayerHealth : NetworkBehaviour {
 	[ServerCallback]
 	void OnEnable()
 	{
-		Debug.Log("HI");
+		//Debug.Log("HI");
+		health = maxHealth;
+	}
+
+	[ServerCallback]
+	void Start()
+	{
+		//Debug.Log("HI");
 		health = maxHealth;
 	}
 
@@ -61,7 +68,7 @@ public class PlayerHealth : NetworkBehaviour {
 		
 		if(isLocalPlayer)
 		{
-			Debug.Log("HI");
+			//Debug.Log("HI");
 			PlayerCanvas.canvas.SetHealth(value);
 		}
 	}
